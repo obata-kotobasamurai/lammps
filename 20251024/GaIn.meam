@@ -1,0 +1,31 @@
+# GaIn.meam
+rc = 4.0
+delr = 0.1
+augt1 = 0
+erose_form = 2
+ialloy = 2
+
+# Ga–In pair
+zbl(1,2) = 0
+nn2(1,2) = 1
+lattce(1,2) = 'b1'
+Ec(1,2) = 2.8405
+re(1,2) = 2.8276
+alpha(1,2) = 3.87486077
+repuls(1,2) = 0.0740
+attrac(1,2) = 0.0740
+
+# Cmin/Cmax cross terms
+Cmin(1,1,2) = 1.4000
+Cmin(2,2,1) = 0.7800
+Cmin(1,2,1) = 1.4500
+Cmin(2,1,1) = 1.4500
+Cmin(1,2,2) = 2.3000
+Cmin(2,1,2) = 2.3000
+Cmax(1,1,2) = 2.8000
+Cmax(2,2,1) = 2.8000
+Cmax(1,2,1) = 2.8000
+Cmax(2,1,1) = 2.8000
+Cmax(1,2,2) = 2.8000
+Cmax(2,1,2) = 2.8000
+

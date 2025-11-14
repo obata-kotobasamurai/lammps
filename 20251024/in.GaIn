@@ -1,0 +1,208 @@
+# =================================================================
+# Ga-In MEAM simulation - 安定版
+# Lost atoms エラー対策済み
+# 
+# MPI並列実行:
+# mpirun -np 32 lmp_mpi -in in.GaIn_stable.lmp
+# =================================================================
+
+dimension       3
+units           metal
+newton          on
+boundary        p p p
+atom_style      atomic
+
+# =================================================================
+# System setup (20^3 = 32,000 atoms)
+# より安定なサイズに変更
+# =================================================================
+region          box1 block 0 100 0 100 0 100
+create_box      2 box1
+
+lattice         fcc 4.5
+create_atoms    1 region box1
+
+# Masses
+mass            1 69.723   # Ga
+mass            2 114.818  # In
+
+# Initial groups (before conversion)
+group           Ga type 1
+group           In type 2
+
+# Composition (50% In)
+set             type 1 type/ratio 2 0.50 63934
+
+# CRITICAL: Redefine groups after type conversion!
+group           Ga delete
+group           In delete
+group           Ga type 1
+group           In type 2
+
+# Report composition
+variable        n_total equal count(all)
+variable        n_Ga equal count(Ga)
+variable        n_In equal count(In)
+print           "=========================================="
+print           "System composition:"
+print           "Total atoms: ${n_total}"
+print           "Ga atoms: ${n_Ga}"
+print           "In atoms: ${n_In}"
+print           "Ga fraction: $(v_n_Ga/v_n_total)"
+print           "In fraction: $(v_n_In/v_n_total)"
+print           "=========================================="
+
+# =================================================================
+# Potential
+# =================================================================
+pair_style      meam
+pair_coeff      * * library.meam Ga In GaIn.meam Ga In
+
+# =================================================================
+# Settings - 安定性向上
+# =================================================================
+# タイムステップを小さく（0.001 → 0.0005 ps）
+timestep        0.0005
+
+thermo          1000
+thermo_style    custom step temp etotal press vol enthalpy density cpu lx ly lz
+
+# Neighbor設定を厳しく
+neighbor        2.0 bin
+neigh_modify    every 1 delay 0 check yes
+
+# Lost atoms検出を有効化
+thermo_modify   lost warn flush yes
+
+# =================================================================
+# Variables
+# =================================================================
+variable        T_low equal 300.0     # より低い初期温度
+variable        T_high equal 600.0    # 高温（800K → 600K）
+variable        T_target equal 500.0  # 目標温度
+variable        energy equal etotal
+variable        temperature equal temp
+variable        pressure equal press
+
+# =================================================================
+# Output files
+# =================================================================
+fix             f1 all ave/time 10 100 1000 v_temperature v_energy v_pressure &
+                file out_energy.txt
+
+# =================================================================
+# STEP 0: 低温で初期緩和（重要！）
+# =================================================================
+print           ""
+print           "=========================================="
+print           "STEP 0: Initial relaxation at ${T_low} K"
+print           "=========================================="
+
+velocity        all create ${T_low} 49931 dist gaussian
+
+# まずNVTで緩和（より安定）
+fix             f0 all nvt temp ${T_low} ${T_low} 0.1
+run             10000
+unfix           f0
+
+# 次にNPTでボックスサイズを調整
+fix             f0b all npt temp ${T_low} ${T_low} 0.1 iso 0.0 0.0 1.0
+run             20000
+unfix           f0b
+
+# =================================================================
+# STEP 1: 徐々に昇温（300K → 600K）
+# =================================================================
+print           ""
+print           "=========================================="
+print           "STEP 1: Gradual heating ${T_low} K -> ${T_high} K"
+print           "=========================================="
+
+fix             f2 all npt temp ${T_low} ${T_high} 0.1 iso 0.0 0.0 1.0
+run             50000
+
+# =================================================================
+# STEP 2: 高温で平衡化
+# =================================================================
+print           ""
+print           "=========================================="
+print           "STEP 2: Equilibration at ${T_high} K"
+print           "=========================================="
+
+unfix           f2
+fix             f2b all npt temp ${T_high} ${T_high} 0.1 iso 0.0 0.0 1.0
+run             30000
+unfix           f2b
+
+# =================================================================
+# STEP 3: 徐々に冷却（600K → 500K）
+# =================================================================
+print           ""
+print           "=========================================="
+print           "STEP 3: Cooling ${T_high} K -> ${T_target} K"
+print           "=========================================="
+
+fix             f3 all npt temp ${T_high} ${T_target} 0.1 iso 0.0 0.0 1.0
+run             50000
+
+# =================================================================
+# STEP 4: 目標温度で平衡化
+# =================================================================
+print           ""
+print           "=========================================="
+print           "STEP 4: Equilibration at ${T_target} K"
+print           "=========================================="
+
+unfix           f3
+fix             f4 all npt temp ${T_target} ${T_target} 0.1 iso 0.0 0.0 1.0
+run             100000
+
+# =================================================================
+# STEP 5: Production run
+# =================================================================
+print           ""
+print           "=========================================="
+print           "STEP 5: Production run at ${T_target} K"
+print           "=========================================="
+
+# タイムステップを通常に戻す（オプション）
+# timestep        0.001
+
+dump            d1 all custom 10000 dump.prod.lammpstrj id type x y z vx vy vz
+dump_modify     d1 element Ga In
+run             100000
+undump          d1
+
+# =================================================================
+# Final structure output
+# =================================================================
+print           ""
+print           "=========================================="
+print           "Writing final structure"
+print           "=========================================="
+
+compute         c0 all property/atom type xs ys zs
+dump            d2 all custom 1 dump.final.lammpstrj id type xs ys zs
+dump_modify     d2 element Ga In
+run             0
+uncompute       c0
+undump          d2
+
+write_data      final_structure.data
+write_dump      all custom final.lammpstrj id type x y z vx vy vz &
+                modify element Ga In
+
+# =================================================================
+# Cleanup
+# =================================================================
+unfix           f1
+unfix           f4
+
+print           ""
+print           "=========================================="
+print           "Simulation completed successfully!"
+print           "Final temperature: ${T_target} K"
+print           "Total atoms: ${n_total}"
+print           "=========================================="
+print           ""
+

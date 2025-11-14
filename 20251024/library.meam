@@ -1,0 +1,13 @@
+# DATE: 2025-10-24 UNITS: metal
+# MEAM library file for Ga and In
+# elt        lat     z       ielement     atwt
+# alpha      b0      b1      b2           b3    alat    esub    asub
+# t0         t1              t2           t3            rozero  ibar
+
+'Ga'        'fcc'   12.     31           69.723
+4.42109342  1.0     1.0     1.0          1.0   4.05    2.900   122.0
+1.0         1.0             1.0          1.0           1.0     0
+
+'In'        'fcc'   12.     49           114.818
+5.02602789  1.0     1.0     1.0          1.0   4.59    2.510   122.0
+1.0         1.0             1.0          1.0           1.0     0
