@@ -1,0 +1,629 @@
+% LuaLaTeX 卒業論文
+% 二種類のGa原子を仮定した分子動力学シミュレーションによる
+% 液体ガリウムの構造因子S(Q)ショルダー構造の再現性検証
+
+\documentclass[a4paper,11pt]{ltjsarticle}
+
+% パッケージ
+\usepackage{luatexja}
+\usepackage{luatexja-fontspec}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+% ページ設定
+\geometry{top=25mm, bottom=25mm, left=25mm, right=25mm}
+
+% ハイパーリンク設定
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue
+}
+
+% タイトル
+\title{
+    \vspace{-2cm}
+    {\Large 令和6年度卒業論文} \\[1cm]
+    {\LARGE 二種類のGa原子を仮定した分子動力学シミュレーションによる\\
+    液体ガリウムの構造因子$S(Q)$ショルダー構造の再現性検証}
+}
+\author{
+    御指導\hspace{1em}平田 秋彦 教授\\[1cm]
+    早稲田大学基幹理工学部 電子物理システム学科\\[0.5cm]
+    氏名：
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% 目次
+\tableofcontents
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{緒言}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+液体金属の原子構造は、X線回折や中性子回折によって得られる構造因子$S(Q)$および動径分布関数$g(r)$から議論される\cite{waseda1980}。多くの単純な液体金属の$S(Q)$は、第一ピークが対称的なハード球モデルで良く記述されるが、一部の多価液体金属は異なる振る舞いを示す。
+
+液体ガリウム(Ga)は、多くの特異な性質を持つ液体金属として知られている。まず、液体Gaは固体$\alpha$-Gaよりも密度が高いという、水と同様の密度異常を示す。また、構造因子$S(Q)$の第一ピークは非対称であり、その高$Q$側（約$2.8$--$3.5$~\AA$^{-1}$付近）に顕著な肩(shoulder)構造が観測される\cite{dicicco1994,bosio1972}。この肩構造は他の単純な液体金属では見られない液体Ga特有の特徴であり、その起源について長年議論が続いている。
+
+肩の起源に関しては主に以下の仮説が提唱されてきた。第一に、固体$\alpha$-Gaに存在する共有結合的なGa$_2$ダイマーが液体中にも残存しているという説である\cite{gong1993}。しかし、第一原理分子動力学計算による検証では、融点近傍の液体Gaにはダイマーの存在を示す証拠が得られなかった\cite{hafner1992}。第二に、伝導電子によるFriedel振動が原子間ポテンシャルに長距離の振動成分をもたらし、これが肩構造の原因とする説がある\cite{oberle1979}。最近のEPSR(Empirical Potential Structure Refinement)シミュレーションでは、肩構造はダイマーではなく第二配位圏の構造再配列に起因することが示唆されている\cite{tamura2023}。
+
+液体Gaの構造を古典分子動力学(MD)シミュレーションで再現する試みも行われてきたが、通常のLennard-Jones(LJ)ポテンシャルでは肩構造を再現することができない。EPSR法では実験データとの整合性を取るようにポテンシャルを逐次的に修正することで肩の再現に成功しているが、得られるポテンシャルは複雑な形状となり、物理的解釈が困難である。
+
+本研究では、液体Gaの$S(Q)$における肩構造を、異なる原子サイズを持つ仮想的な2種類のGa粒子(Ga1, Ga2)を導入したLJ型MDシミュレーションによって再現することを目的とする。具体的には、Ga1とGa2の組成比およびサイズ比($\sigma_{12}$比)をパラメータとして系統的に探索し、実験$S(Q)$との一致度を評価した。さらに、Voronoi多面体解析により二種類のGa粒子の局所構造の違いを調べ、ショルダー構造の起源について考察した。本手法は、複雑なポテンシャルを用いることなく、シンプルな2成分系モデルで肩構造の本質を捉えることを試みるものである。
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{理論}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{分子動力学シミュレーション}
+
+分子動力学(MD)シミュレーションは、ニュートンの運動方程式に従って粒子の軌道を時間発展させる計算手法である。$N$個の粒子からなる系において、粒子$i$の運動方程式は
+\begin{equation}
+    m_i \frac{d^2 \mathbf{r}_i}{dt^2} = \mathbf{F}_i = -\nabla_i U(\mathbf{r}_1, \mathbf{r}_2, \ldots, \mathbf{r}_N)
+\end{equation}
+で与えられる。ここで$m_i$は粒子$i$の質量、$\mathbf{r}_i$は位置ベクトル、$U$は系の全ポテンシャルエネルギーである。
+
+運動方程式の時間積分には、速度Verlet法を用いた。速度Verlet法は以下の更新式で与えられる：
+\begin{align}
+    \mathbf{r}(t + \Delta t) &= \mathbf{r}(t) + \mathbf{v}(t)\Delta t + \frac{1}{2}\mathbf{a}(t)\Delta t^2 \\
+    \mathbf{v}(t + \Delta t) &= \mathbf{v}(t) + \frac{1}{2}[\mathbf{a}(t) + \mathbf{a}(t+\Delta t)]\Delta t
+\end{align}
+ここで$\mathbf{a} = \mathbf{F}/m$は加速度、$\Delta t$は時間刻みである。
+
+\subsection{Lennard-Jonesポテンシャル}
+
+本研究では、原子間相互作用としてLennard-Jones (LJ) ポテンシャルを採用した：
+\begin{equation}
+    U_{\mathrm{LJ}}(r) = 4\varepsilon \left[ \left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6} \right]
+    \label{eq:lj}
+\end{equation}
+ここで$\varepsilon$はポテンシャルの深さ（結合エネルギー）、$\sigma$は粒子の有効直径を表す。$r^{-12}$項は近距離での強い斥力（Pauli斥力）を、$r^{-6}$項は遠距離でのvan der Waals引力を表現する。
+
+ポテンシャルの極小値は$r = 2^{1/6}\sigma \approx 1.12\sigma$の位置にあり、その深さは$-\varepsilon$である。
+
+\subsection{二種類Ga原子モデル（Bimodal LJモデル）}
+
+本研究の核心となるモデルは、液体Ga中に2種類の仮想的なGa粒子（Ga1, Ga2）が存在すると仮定するものである。これらは同じ質量を持つが、LJパラメータ$\sigma$のみが異なる：
+\begin{itemize}
+    \item Ga1: サイズパラメータ $\sigma_1$（小さい粒子）
+    \item Ga2: サイズパラメータ $\sigma_2$（大きい粒子）
+\end{itemize}
+
+異種粒子間（Ga1-Ga2間）の相互作用パラメータは、Lorentz-Berthelot混合則により決定される：
+\begin{align}
+    \sigma_{12} &= \frac{\sigma_1 + \sigma_2}{2} \\
+    \varepsilon_{12} &= \sqrt{\varepsilon_1 \varepsilon_2}
+\end{align}
+
+本モデルでは、サイズ比$\sigma_{12}/\sigma_{11}$およびGa1の組成比をパラメータとして探索を行った。サイズ比が1より大きい場合、Ga2はGa1より大きいことを意味する。
+
+\subsection{動径分布関数 $g(r)$}
+
+動径分布関数$g(r)$は、ある原子から距離$r$の位置に別の原子が存在する確率密度を、理想気体（一様分布）の場合で規格化したものである：
+\begin{equation}
+    g(r) = \frac{1}{4\pi r^2 \rho N} \sum_{i=1}^{N} \sum_{j \neq i}^{N} \langle \delta(r - |\mathbf{r}_i - \mathbf{r}_j|) \rangle
+\end{equation}
+ここで$\rho = N/V$は数密度、$\langle \cdot \rangle$は時間平均（またはアンサンブル平均）を表す。
+
+$g(r)$の物理的意味は以下の通りである：
+\begin{itemize}
+    \item $g(r) = 0$: 距離$r$には原子が存在しない（排除体積効果）
+    \item $g(r) = 1$: 一様分布と同じ（長距離での極限）
+    \item $g(r) > 1$: 一様分布より原子が多い（秩序構造）
+\end{itemize}
+
+$g(r)$の第一ピーク位置は最近接原子間距離に対応し、配位数$N_c$は
+\begin{equation}
+    N_c = 4\pi \rho \int_0^{r_{\min}} r^2 g(r) \, dr
+\end{equation}
+で求められる。ここで$r_{\min}$は第一極小の位置である。
+
+\subsection{構造因子 $S(Q)$}
+
+構造因子$S(Q)$は$g(r)$のフーリエ変換により得られ、X線や中性子の回折実験で直接測定される量である：
+\begin{equation}
+    S(Q) = 1 + 4\pi\rho \int_0^{\infty} r^2 [g(r) - 1] \frac{\sin(Qr)}{Qr} \, dr
+    \label{eq:sq}
+\end{equation}
+ここで$Q$は散乱ベクトルの大きさ（波数）である。
+
+実際の計算では$g(r)$は有限の距離$r_{\max}$で切断されるため、切断に伴うアーティファクト（Gibbs振動）を低減するためLorch窓関数を適用する：
+\begin{equation}
+    W(r) = \frac{\sin(\pi r / r_{\max})}{\pi r / r_{\max}}
+\end{equation}
+
+Lorch窓関数を適用した$S(Q)$の計算式は：
+\begin{equation}
+    S(Q) = 1 + 4\pi\rho \int_0^{r_{\max}} r^2 [g(r) - 1] \frac{\sin(Qr)}{Qr} W(r) \, dr
+\end{equation}
+
+\subsection{評価指標}
+
+計算$S(Q)$と実験$S(Q)$の一致度を定量的に評価するため、以下の指標を用いた。
+
+\paragraph{R-factor}
+結晶学で広く用いられる信頼度因子：
+\begin{equation}
+    R = \frac{\sum_i |S_{\mathrm{calc}}(Q_i) - S_{\mathrm{exp}}(Q_i)|}{\sum_i |S_{\mathrm{exp}}(Q_i)|}
+\end{equation}
+$R$が小さいほど一致が良い。一般に$R < 0.1$で良好な一致とされる。
+
+\paragraph{RMSE (Root Mean Square Error)}
+二乗平均平方根誤差：
+\begin{equation}
+    \mathrm{RMSE} = \sqrt{\frac{1}{N} \sum_i [S_{\mathrm{calc}}(Q_i) - S_{\mathrm{exp}}(Q_i)]^2}
+\end{equation}
+
+\paragraph{ショルダー部RMSE}
+肩構造が現れる$Q = 2.8$--$3.5$~\AA$^{-1}$領域に限定したRMSE：
+\begin{equation}
+    \mathrm{RMSE}_{\mathrm{shoulder}} = \sqrt{\frac{1}{N_{\mathrm{sh}}} \sum_{Q_i \in [2.8, 3.5]} [S_{\mathrm{calc}}(Q_i) - S_{\mathrm{exp}}(Q_i)]^2}
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{計算手法}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{シミュレーションの流れ}
+
+本研究における分子動力学シミュレーションの流れを図\ref{fig:flowchart}に示す。
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.5cm,
+        startstop/.style={rectangle, rounded corners, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=blue!10},
+        process/.style={rectangle, minimum width=4cm, minimum height=1cm, text centered, draw=black, fill=orange!10},
+        decision/.style={diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=green!10},
+        arrow/.style={thick,->,>=stealth}
+    ]
+
+    \node (start) [startstop] {初期配置生成\\4000個のGa原子};
+    \node (eq1) [process, below of=start] {高温で平衡化 (3000K)};
+    \node (cool) [process, below of=eq1] {目標温度まで冷却};
+    \node (eq2) [process, below of=cool] {目標温度で平衡化\\(NVT, 100ps)};
+    \node (prod) [process, below of=eq2] {本計算\\(NVT, 100ps)};
+    \node (analysis) [startstop, below of=prod] {解析\\$g(r)$, $S(Q)$計算};
+
+    \draw [arrow] (start) -- (eq1);
+    \draw [arrow] (eq1) -- (cool);
+    \draw [arrow] (cool) -- (eq2);
+    \draw [arrow] (eq2) -- (prod);
+    \draw [arrow] (prod) -- (analysis);
+
+    \end{tikzpicture}
+    \caption{分子動力学シミュレーションのフローチャート}
+    \label{fig:flowchart}
+\end{figure}
+
+\subsection{シミュレーション条件}
+
+分子動力学シミュレーションにはLAMMPS (Large-scale Atomic/Molecular Massively Parallel Simulator)を使用した。表\ref{tab:conditions}にシミュレーション条件を示す。
+
+\begin{table}[H]
+    \centering
+    \caption{シミュレーション条件}
+    \label{tab:conditions}
+    \begin{tabular}{ll}
+        \toprule
+        パラメータ & 値 \\
+        \midrule
+        原子数 & 4000 \\
+        初期配置 & FCC格子 \\
+        格子定数 & 4.52~\AA \\
+        原子質量 & 69.723~u (Ga) \\
+        時間刻み & 0.001~ps (1~fs) \\
+        温度制御 & Nos\'e-Hoover thermostat \\
+        アンサンブル & NVT \\
+        境界条件 & 三次元周期境界条件 \\
+        平衡化時間 & 100~ps \\
+        本計算時間 & 100~ps \\
+        カットオフ距離 & 12.0~\AA \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{二種類Ga原子モデルの実装}
+
+二種類Ga原子モデルでは、系内のGa原子を以下のように2種類に分類した：
+\begin{itemize}
+    \item \textbf{Ga1}（type 1）: 全原子の一定割合を占める「小さい」Ga粒子
+    \item \textbf{Ga2}（type 2）: 残りを占める「大きい」Ga粒子
+\end{itemize}
+
+LJポテンシャルパラメータは以下のように設定した：
+\begin{itemize}
+    \item Ga1-Ga1相互作用: $\sigma_{11} = 2.74$~\AA, $\varepsilon_{11} = 0.28$~eV
+    \item Ga2-Ga2相互作用: $\sigma_{22}$は探索パラメータ
+    \item Ga1-Ga2相互作用: Lorentz-Berthelot則で計算
+\end{itemize}
+
+\subsection{パラメータ探索}
+
+ショルダー構造を最もよく再現するパラメータを見つけるため、以下の範囲でグリッドサーチを行った：
+
+\begin{table}[H]
+    \centering
+    \caption{パラメータ探索範囲}
+    \label{tab:search}
+    \begin{tabular}{lcc}
+        \toprule
+        パラメータ & 探索範囲 & 刻み幅 \\
+        \midrule
+        $\sigma_{12}/\sigma_{11}$ & 1.12 -- 1.18 & 0.01 \\
+        Ga1組成比 & 45\% -- 55\% & 2-3\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+各パラメータ組み合わせについてMDシミュレーションを実行し、得られた$S(Q)$を実験値と比較してR-factorおよびRMSEを計算した。計36通りのパラメータ組み合わせを探索した。
+
+\subsection{Voronoi多面体解析}
+
+局所構造を解析するため、Voronoi多面体解析を行った。Voronoi多面体は、各原子を中心として空間を分割したときに得られる凸多面体であり、その形状は局所的な原子配置を反映する。
+
+Voronoi多面体は、面の数と種類によって$\langle n_3, n_4, n_5, n_6, \ldots \rangle$というVoronoi指数で分類される。ここで$n_i$は$i$角形の面の数を表す。例えば：
+\begin{itemize}
+    \item $\langle 0, 12, 0, 0 \rangle$: 正二十面体（icosahedron）
+    \item $\langle 0, 6, 0, 8 \rangle$: 体心立方的（BCC-like）
+\end{itemize}
+
+本研究では、freud-analysisライブラリを用いてVoronoi解析を行い、Ga1とGa2の局所構造の違いを調べた。
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{結果}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{動径分布関数}
+
+図\ref{fig:rdf}に、単一成分LJモデル（通常のGaモデル）による各温度（293~K, 600~K, 1000~K）での動径分布関数$g(r)$を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/rdf_comparison.png}
+    \caption{各温度における動径分布関数$g(r)$の比較。温度上昇に伴い、ピークがブロードになる典型的な液体の振る舞いを示す。}
+    \label{fig:rdf}
+\end{figure}
+
+表\ref{tab:properties}に各温度での物性値を示す。温度上昇に伴い密度は減少し、ポテンシャルエネルギーは増加する。
+
+\begin{table}[H]
+    \centering
+    \caption{各温度における物性値}
+    \label{tab:properties}
+    \begin{tabular}{cccc}
+        \toprule
+        温度 (K) & 密度 (g/cm$^3$) & 圧力 (bar) & PE/atom (eV) \\
+        \midrule
+        293 & 6.114 & 229 & $-2.787$ \\
+        600 & 5.898 & $-153$ & $-2.741$ \\
+        1000 & 5.641 & $-360$ & $-2.687$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+$g(r)$の第一ピーク位置は約2.8~\AA であり、これは液体Gaの最近接原子間距離に対応する。第二ピークは約5~\AA 付近に見られ、第二配位圏を反映している。
+
+\subsection{構造因子（単一成分モデル）}
+
+図\ref{fig:sq}に、単一成分LJポテンシャルで計算した$S(Q)$の温度依存性を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/sq_comparison.png}
+    \caption{単一成分LJポテンシャルによる$S(Q)$の温度比較。第一ピーク（$Q \approx 2.5$~\AA$^{-1}$）は対称的であり、実験で観測されるショルダー構造は再現されていない。}
+    \label{fig:sq}
+\end{figure}
+
+単一成分モデルでは、$S(Q)$の第一ピークは対称的な形状を示し、高$Q$側（$Q = 2.8$--$3.5$~\AA$^{-1}$）に肩構造は見られない。これは通常のLJポテンシャルでは液体Gaの特異な構造を再現できないことを示している。
+
+\subsection{パラメータ探索結果}
+
+二種類Ga原子モデルによるパラメータ探索の結果を図\ref{fig:heatmap}に示す。
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/rmse_heatmap.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/rfactor_heatmap.png}
+    \end{minipage}
+    \caption{パラメータ探索結果のヒートマップ。左：全$Q$範囲でのRMSE、右：R-factor。暗い色ほど一致が良い。$\sigma_{12} = 1.17$, Ga1 = 45\%付近で最小値を示す。}
+    \label{fig:heatmap}
+\end{figure}
+
+ヒートマップから、$\sigma_{12}/\sigma_{11} = 1.17$、Ga1組成比 = 45\%の領域でRMSEおよびR-factorが最小となることがわかる。
+
+図\ref{fig:gallery}に、全探索パラメータでの$S(Q)$計算結果を一覧で示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/gallery_all_sq.png}
+    \caption{全探索パラメータにおける計算$S(Q)$と実験$S(Q)$の比較ギャラリー。各パネルは異なるパラメータ組み合わせを示す。}
+    \label{fig:gallery}
+\end{figure}
+
+表\ref{tab:top10}に、R-factor上位10件のパラメータと評価指標を示す。
+
+\begin{table}[H]
+    \centering
+    \caption{パラメータ探索結果（R-factor上位10件）}
+    \label{tab:top10}
+    \begin{tabular}{ccccc}
+        \toprule
+        $\sigma_{12}$ & Ga1比率 & R-factor & RMSE & ショルダーRMSE \\
+        \midrule
+        1.17 & 0.45 & 0.058 & 0.071 & 0.026 \\
+        1.12 & 0.45 & 0.059 & 0.077 & 0.080 \\
+        1.13 & 0.50 & 0.060 & 0.076 & 0.082 \\
+        1.13 & 0.48 & 0.060 & 0.079 & 0.085 \\
+        1.17 & 0.48 & 0.060 & 0.078 & 0.075 \\
+        1.18 & 0.48 & 0.061 & 0.077 & 0.077 \\
+        1.15 & 0.45 & 0.062 & 0.077 & 0.071 \\
+        1.18 & 0.45 & 0.063 & 0.088 & 0.061 \\
+        1.12 & 0.48 & 0.063 & 0.082 & 0.099 \\
+        1.14 & 0.48 & 0.064 & 0.084 & 0.097 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{ショルダー構造の再現}
+
+最適パラメータ（$\sigma_{12}/\sigma_{11} = 1.17$, Ga1 = 45\%）における計算$S(Q)$と実験$S(Q)$の比較を図\ref{fig:best}に示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/best_fit_overlay.png}
+    \caption{最適パラメータ（$\sigma_{12} = 1.17$, Ga1 = 45\%）における$S(Q)$の比較。二種類Ga原子モデルにより、実験値に見られるショルダー構造が良好に再現されている。}
+    \label{fig:best}
+\end{figure}
+
+最適パラメータでは、R-factor = 0.058、RMSE = 0.071という良好な一致が得られた。特に、ショルダー領域（$Q = 2.8$--$3.5$~\AA$^{-1}$）でのRMSEは0.026と非常に小さい。
+
+図\ref{fig:shoulder}にショルダー部分の拡大図を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/shoulder_comparison.png}
+    \caption{ショルダー構造部分（$Q = 2.5$--$4.0$~\AA$^{-1}$）の拡大比較。二種類Ga原子モデル（赤線）は実験値（黒丸）のショルダー構造を定量的に再現している。}
+    \label{fig:shoulder}
+\end{figure}
+
+表\ref{tab:optimal}に最適パラメータの詳細と評価指標をまとめる。
+
+\begin{table}[H]
+    \centering
+    \caption{最適パラメータと評価指標}
+    \label{tab:optimal}
+    \begin{tabular}{ll}
+        \toprule
+        パラメータ/指標 & 値 \\
+        \midrule
+        $\sigma_{12}/\sigma_{11}$ & 1.17 \\
+        Ga1 組成比 & 45\% \\
+        Ga2 組成比 & 55\% \\
+        R-factor & 0.058 \\
+        全体RMSE & 0.071 \\
+        ショルダー部RMSE & 0.026 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Voronoi多面体解析}
+
+二種類のGa粒子の局所構造の違いを調べるため、最適パラメータでのVoronoi多面体解析を行った。
+
+図\ref{fig:voronoi_summary}にVoronoi解析の概要を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/voronoi_summary.png}
+    \caption{Voronoi解析結果の概要。二種類のGa粒子の局所構造の違いが可視化されている。}
+    \label{fig:voronoi_summary}
+\end{figure}
+
+図\ref{fig:voronoi_type}にGa1とGa2のVoronoi多面体分布の比較を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/voronoi_type_comparison.png}
+    \caption{Ga1（小さい粒子）とGa2（大きい粒子）のVoronoi多面体分布の比較。両者は異なる局所環境を持つことがわかる。}
+    \label{fig:voronoi_type}
+\end{figure}
+
+図\ref{fig:voronoi_coord}に配位数分布を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/voronoi_coordination.png}
+    \caption{Ga1とGa2の配位数分布。Ga2（大きい粒子）はGa1より平均配位数が大きい傾向にある。}
+    \label{fig:voronoi_coord}
+\end{figure}
+
+図\ref{fig:voronoi_vol}にVoronoi体積分布を示す。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/voronoi_volume.png}
+    \caption{Ga1とGa2のVoronoi体積分布。Ga2の方がGa1より大きなVoronoi体積を持つ。}
+    \label{fig:voronoi_vol}
+\end{figure}
+
+Voronoi解析の結果、以下のことが明らかになった：
+\begin{itemize}
+    \item Ga1（小さい粒子）は平均配位数が約11.5であり、より密に充填された環境にある
+    \item Ga2（大きい粒子）は平均配位数が約12.3であり、より開いた環境にある
+    \item Voronoi体積はGa2の方がGa1より約15\%大きい
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{考察}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{二種類Ga原子モデルの物理的解釈}
+
+本研究で提案した二種類Ga原子モデルにおいて、最適サイズ比$\sigma_{12}/\sigma_{11} = 1.17$が得られた。これは、大きいGa粒子（Ga2）が小さいGa粒子（Ga1）より約17\%大きい有効直径を持つことを意味する。
+
+この17\%のサイズ差は、液体Ga中に2種類の局所環境が共存していることを示唆している。具体的には：
+\begin{enumerate}
+    \item \textbf{密な環境（Ga1）}: より小さな原子間距離で配位した領域
+    \item \textbf{疎な環境（Ga2）}: より大きな原子間距離で配位した領域
+\end{enumerate}
+
+このような局所環境の不均一性は、液体Gaの密度異常（液体が固体より高密度）とも整合する。固体$\alpha$-Gaの複雑な結晶構造（斜方晶、各原子が7配位）が融解する際に、一部の領域でより密な充填が実現されると考えられる。
+
+最適組成比がGa1 = 45\%、Ga2 = 55\%であったことは、液体Ga中ではやや疎な環境（大きいGa2）が優勢であることを示している。
+
+\subsection{ショルダー構造再現のメカニズム}
+
+二種類Ga原子モデルがショルダー構造を再現できる理由を、以下のように考察する。
+
+構造因子$S(Q)$は動径分布関数$g(r)$のフーリエ変換であり、実空間での原子配置の情報を逆空間（波数空間）に変換したものである。ショルダー構造は$S(Q)$の第一ピーク高$Q$側（$Q = 2.8$--$3.5$~\AA$^{-1}$）に現れる。
+
+波数$Q$と実空間距離$r$の関係は$Q \sim 2\pi/r$であるから、$Q = 3.0$~\AA$^{-1}$は$r \approx 2.1$~\AA に対応する。これは最近接原子間距離（約2.8~\AA）よりも短い。
+
+二種類のGa粒子が混在する系では、以下の3種類の原子間距離が存在する：
+\begin{itemize}
+    \item Ga1-Ga1間: 最も短い（$\sim 2.74 \times 2^{1/6}$~\AA）
+    \item Ga1-Ga2間: 中間（$\sim \sigma_{12} \times 2^{1/6}$~\AA）
+    \item Ga2-Ga2間: 最も長い
+\end{itemize}
+
+これらの異なる原子間距離が$g(r)$に複数の寄与を与え、そのフーリエ変換である$S(Q)$に非対称性（ショルダー構造）をもたらすと考えられる。
+
+特に、$\sigma_{12} = 1.17\sigma_{11}$の条件では、Ga1-Ga2間の距離がGa1-Ga1間とGa2-Ga2間の中間的な値を取り、ちょうどショルダー構造に対応する$Q$領域に寄与を与える。
+
+\subsection{Voronoi解析による局所構造の考察}
+
+Voronoi解析の結果、Ga1とGa2が異なる局所環境を持つことが確認された。
+
+Ga1（小さい粒子）は：
+\begin{itemize}
+    \item 平均配位数が小さい（約11.5）
+    \item Voronoi体積が小さい
+    \item より密に充填された環境
+\end{itemize}
+
+Ga2（大きい粒子）は：
+\begin{itemize}
+    \item 平均配位数が大きい（約12.3）
+    \item Voronoi体積が大きい
+    \item より開いた環境
+\end{itemize}
+
+このような局所構造の違いは、$g(r)$の第一ピーク周辺に複数の寄与を与え、結果として$S(Q)$にショルダー構造を生じさせる。
+
+興味深いことに、Ga2の配位環境は正二十面体（配位数12）に近い構造を取る傾向がある。正二十面体クラスターは金属ガラスの局所構造として知られており、液体Gaにもガラス的な構造要素が存在することを示唆している。
+
+\subsection{先行研究との比較}
+
+\paragraph{EPSR法との比較}
+Tamuraら\cite{tamura2023}のEPSR法による研究では、経験的ポテンシャルを逐次的に修正することでショルダー構造の再現に成功している。EPSRで得られるポテンシャルは複雑な形状を持ち、その物理的解釈は困難である。
+
+一方、本研究の二種類Ga原子モデルは、シンプルなLJポテンシャルの組み合わせのみで同様の再現を実現している。これは、ショルダー構造の本質が「2種類の局所環境の共存」にあることを明確に示している。EPSRの複雑なポテンシャルは、実効的に2種類の環境を表現していると解釈できる。
+
+\paragraph{Ga$_2$ダイマー説との関係}
+Gongら\cite{gong1993}が提唱したGa$_2$ダイマー説では、固体中のダイマー構造が液体中にも残存していると主張された。しかし、本研究のモデルはダイマーの存在を仮定していない。
+
+本研究の結果は、ショルダー構造がダイマーではなく、異なるサイズの局所環境の共存で説明できることを示唆している。これはHafnerとJank\cite{hafner1992}の第一原理計算（ダイマー否定）およびTamuraら\cite{tamura2023}のEPSR結果（第二配位圏の再配列）と整合する。
+
+\paragraph{Friedel振動説との関係}
+OberleとBeck\cite{oberle1979}は、伝導電子によるFriedel振動がショルダー構造の原因であると提唱した。Friedel振動は、ポテンシャルに長距離の振動成分をもたらす。
+
+本研究で用いたLJポテンシャルにはFriedel振動成分は含まれていないが、ショルダー構造を再現できた。これは、Friedel振動が主要因ではない可能性を示唆している。ただし、2種類のGa粒子の存在は、Friedel振動の効果を実効的に取り込んでいる可能性もある。
+
+\subsection{本モデルの限界と今後の課題}
+
+本研究の二種類Ga原子モデルには以下の限界がある：
+
+\begin{enumerate}
+    \item \textbf{物理的根拠}：2種類のGa粒子を導入する物理的根拠は明確ではない。第一原理計算との比較により、このモデルの妥当性を検証する必要がある。
+
+    \item \textbf{温度依存性}：本研究では主に293~Kでの結果を示した。ショルダー構造の温度依存性を再現できるかどうかは、今後の検証課題である。
+
+    \item \textbf{他の物性}：拡散係数、粘性率などの動的物性がこのモデルで正しく再現されるかは未検証である。
+
+    \item \textbf{合金系への拡張}：Ga-In合金などの多成分系へのモデル拡張の可能性を検討する必要がある。
+\end{enumerate}
+
+今後は、第一原理分子動力学計算との比較により、2種類のGa粒子が実際の電子状態にどのように対応するかを明らかにすることが重要である。
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{結論}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+本研究では、液体ガリウムの構造因子$S(Q)$における特徴的な肩（ショルダー）構造を、二種類のGa原子を仮定した分子動力学シミュレーションにより再現することを試みた。主な結論は以下の通りである。
+
+\begin{itemize}
+    \item サイズ比$\sigma_{12}/\sigma_{11} = 1.17$、Ga1組成比45\%の条件において、実験$S(Q)$との良好な一致（R-factor = 0.058）が得られた。
+
+    \item 二種類Ga原子モデルにより、第一ピーク高$Q$側（$2.8$--$3.5$~\AA$^{-1}$）の肩構造を定量的に再現することができた（ショルダー部RMSE = 0.026）。
+
+    \item Voronoi解析により、二種類のGa粒子が異なる局所環境を持つことが確認された。Ga1（小さい粒子）は密な環境、Ga2（大きい粒子）は疎な環境に存在する傾向がある。
+
+    \item ショルダー構造は、2種類の異なる原子サイズに起因する複数の原子間距離が、$g(r)$および$S(Q)$に複合的な寄与を与えることで生じると解釈される。
+
+    \item 複雑なポテンシャルを用いることなく、シンプルな2成分LJモデルで液体Gaの構造的特徴を捉えることができた。これは、ショルダー構造の本質が「2種類の局所環境の共存」にあることを示唆している。
+\end{itemize}
+
+今後の課題として、第一原理計算との比較による本モデルの物理的妥当性の検証、温度依存性の詳細な解析、および動的物性の検証が挙げられる。
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{謝辞}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\addcontentsline{toc}{section}{謝辞}
+
+本研究を遂行するにあたり、終始懇切丁寧なご指導を賜りました平田秋彦教授に深く感謝いたします。研究の方向性から論文の細部に至るまで、多くの有益なご助言をいただきました。
+
+また、研究室の先輩方、同期の皆様には、日々の議論や実験に関して多大なるご協力をいただきました。計算資源の提供に関しても感謝いたします。
+
+最後に、日々の学生生活を支援してくれた家族に感謝の意を表し、本卒業論文の結びとさせていただきます。
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 参考文献
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{thebibliography}{99}
+
+\bibitem{waseda1980}
+Y. Waseda, \textit{The Structure of Non-Crystalline Materials}, McGraw-Hill, New York (1980).
+
+\bibitem{dicicco1994}
+A. Di Cicco and A. Filipponi, ``Short-range structure of liquid gallium,'' Europhys. Lett. \textbf{27}, 407--412 (1994).
+
+\bibitem{bosio1972}
+L. Bosio, R. Cortes, and C. Segaud, ``X-ray diffraction study of liquid gallium,'' J. Chem. Phys. \textbf{57}, 3684--3689 (1972).
+
+\bibitem{gong1993}
+X. G. Gong, G. L. Chiarotti, M. Parrinello, and E. Tosatti, ``$\alpha$-Gallium: A metallic molecular crystal,'' Phys. Rev. B \textbf{47}, 3703--3706 (1993).
+
+\bibitem{hafner1992}
+J. Hafner and W. Jank, ``Structural and electronic properties of liquid gallium,'' Phys. Rev. B \textbf{45}, 2739--2749 (1992).
+
+\bibitem{oberle1979}
+R. Oberle and H. Beck, ``On the structure factor of liquid gallium,'' Solid State Commun. \textbf{32}, 959--962 (1979).
+
+\bibitem{tamura2023}
+K. Tamura, S. Hosokawa, M. Inui, Y. Kajihara, and W. S. Howells, ``Local Order in Liquid Gallium--Indium Alloys,'' J. Phys. Chem. C \textbf{127}, 17523--17531 (2023).
+
+\end{thebibliography}
+
+\end{document}
