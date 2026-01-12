@@ -207,11 +207,11 @@ $R$が小さいほど一致が良い。一般に$R < 0.1$で良好な一致と�
         arrow/.style={thick,->,>=stealth}
     ]
 
-    \node (start) [startstop] {初期配置生成\\4000個のGa原子};
+    \node (start) [startstop] {初期配置生成\\1000個のGa原子};
     \node (eq1) [process, below of=start] {高温で平衡化 (3000K)};
     \node (cool) [process, below of=eq1] {目標温度まで冷却};
     \node (eq2) [process, below of=cool] {目標温度で平衡化\\(NVT, 100ps)};
-    \node (prod) [process, below of=eq2] {本計算\\(NVT, 100ps)};
+    \node (prod) [process, below of=eq2] {本計算\\(NVT, 200ps)};
     \node (analysis) [startstop, below of=prod] {解析\\$g(r)$, $S(Q)$計算};
 
     \draw [arrow] (start) -- (eq1);
