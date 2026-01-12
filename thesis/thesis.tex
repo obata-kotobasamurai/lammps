@@ -306,12 +306,12 @@ Voronoi多面体は、面の数と種類によって$\langle n_3, n_4, n_5, n_6,
 
 \subsection{動径分布関数}
 
-図\ref{fig:rdf}に、単一成分LJモデル（通常のGaモデル）による各温度（293~K, 600~K, 1000~K）での動径分布関数$g(r)$を示す。
+図\ref{fig:rdf}に、単一成分LJモデルによる423~K（150$^\circ$C）での動径分布関数$g(r)$を実験データと比較して示す。
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{figures/rdf_comparison.png}
-    \caption{各温度における動径分布関数$g(r)$の比較。温度上昇に伴い、ピークがブロードになる典型的な液体の振る舞いを示す。}
+    \includegraphics[width=0.9\textwidth]{figures/rdf_comparison_with_exp.png}
+    \caption{単一成分LJシミュレーションと実験による動径分布関数$g(r)$の比較（423~K）。黒点が実験データ、青線がシミュレーション結果を示す。}
     \label{fig:rdf}
 \end{figure}
 
@@ -336,12 +336,12 @@ $g(r)$の第一ピーク位置は約2.8~\AA であり、これは液体Gaの最�
 
 \subsection{構造因子（単一成分モデル）}
 
-図\ref{fig:sq}に、単一成分LJポテンシャルで計算した$S(Q)$の温度依存性を示す。
+図\ref{fig:sq}に、単一成分LJポテンシャルで計算した$S(Q)$を実験データと比較して示す。オレンジ色の領域がショルダー構造の観測される$Q = 2.8$--$3.5$~\AA$^{-1}$の範囲を示す。
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{figures/sq_comparison.png}
-    \caption{単一成分LJポテンシャルによる$S(Q)$の温度比較。第一ピーク（$Q \approx 2.5$~\AA$^{-1}$）は対称的であり、実験で観測されるショルダー構造は再現されていない。}
+    \includegraphics[width=0.85\textwidth]{figures/sq_comparison_with_exp.png}
+    \caption{単一成分LJポテンシャルによる$S(Q)$と実験データの比較。黒点が実験データ、青線がシミュレーション結果、オレンジ領域がショルダー構造の出現領域を示す。単一成分LJモデルでは実験で観測されるショルダー構造を再現できないことが視覚的に確認できる。}
     \label{fig:sq}
 \end{figure}
 
